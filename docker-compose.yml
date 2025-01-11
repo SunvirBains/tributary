@@ -1,0 +1,13 @@
+services: # Defines 2 services: the tributary (Flask) and Redis (database)
+  tributary:
+    build: . # Tells Docker Compose to build the image from the Dockerfile in the current directory
+    command: gunicorn -w 4 -b 0.0.0.0:8000 entrypoint:app #-w4 build number of workers -b bind to all network
+    ports:
+      - "8000:8000" # Maps port 8000 on the host to port 8000 on the container allowing external access
+
+  redis:
+    image: redis # Pulls the Redis image from Docker Hub if not locally available
+    ports:
+      - "6379:6379" # Maps Redis's default port on the host to the same port on the container, enabling access
+
+# The .yml extension indicates that this file is written in YAML, a language used for configuration files.
