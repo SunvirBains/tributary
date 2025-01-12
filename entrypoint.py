@@ -2,6 +2,7 @@ import json  # Allows working with JSON data: encoding and decoding between Pyth
 import redis as redis  # Imports the Redis Python client, enabling interaction with a Redis server.
 from flask import Flask, request  # Imports Flask to create a web application and request to handle incoming web requests.
 from loguru import logger  # Logging is used to record and store messages about the application's operation for troubleshooting and monitoring.
+from statistics import mean
 
 
 #Contants 
@@ -12,6 +13,7 @@ DATA_KEY= "engine_temperature"
 #Creating Flask server and allow to interact with it using app variable
 app= Flask( __name__) #Create instancer and __name__ is a special varaible that is used as starting point for flask to locate it resources
 
+database= redis.Redis(host="redis",port=6379,db=0,decode_responses=True)
 
 #Define an endpoint which accpets post requests and is reachable from /record endpoint
 
@@ -25,8 +27,7 @@ def record_engine_temperature(): #function to handle the /record request
     logger.info(f"(*) engine temperature record is : {engine_temperature}") #log extracted temp
 
     #connect to Redis 
-    database= redis.Redis(host="redis",port=6379,db=0,decode_responses=True)
-    
+   
     database.lpush(DATA_KEY,engine_temperature) #push new temp to redis list
     logger.info(f"stashed engine temperature in redis: {engine_temperature}") #log the action of storign
 
@@ -42,6 +43,22 @@ def record_engine_temperature(): #function to handle the /record request
 
 @app.route('/collect',methods=['POST']) #similar to before but setsup collect route for post requests
 def collect_engine_temperature():
-    return{"success":True},200
+    
+    temperatures = database.lrange(DATA_KEY,0,-1)
+    if not temperatures:
+        logger.info("No temperatures available to collect")
+        return {"error": "No temperatures available"}, 404
+    
+    #convert the data from string to float
+    temperatures= [float(temp) for temp in temperatures]
+    
+    current_engine_temperatures= temperatures[0]
+    average_engine_temperature=mean(temperatures)
+    
+    logger.info(f"Collected current temperature: {current_engine_temperatures}, average temperature: {average_engine_temperature}")
 
-
+    return {
+        "success": True,
+        "current_engine_temperature": current_engine_temperatures,
+        "average_engine_temperature": average_engine_temperature
+    }, 200
